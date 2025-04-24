@@ -10,9 +10,10 @@ import datetime
 import sys
 import os
 
-class Ventas(tk.Frame):
+#El rollo aqui es que se esta seleccionando al producto por su nombre y no por el id que pondre nuevo con un codigo de identificacion unico para el producto
+class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
     def __init__(self, parent):
-        super().__init__(parent) #1100, 650
+        super().__init__(parent) #Llamada al constructor de la clase padre tk.Frame
         self.db = Database() #instancia de la conexion a la base de datos
         self.numero_factura_actual = self.obtener_numero_factura_actual()
         self.widgets()
@@ -102,7 +103,7 @@ class Ventas(tk.Frame):
 
     def cargar_productos(self): #carga los nombres desde la tabla inventario
             try: 
-                query = "SELECT nombre FROM inventario"
+                query = "SELECT nombre FROM inventario"  #Aqui esta bien selecciona los valores unicos de la BD 
                 productos = self.db.obtener_datos(query)
                 self.entry_nombre["values"] =[producto[0] for producto in productos] #es un combobox donde quiero se desplieguen los nombres de los productos
                 if not productos:
@@ -315,7 +316,7 @@ class Ventas(tk.Frame):
          os.startfile(os.path.abspath(archivo_pdf))
 
          
-
+    #importante revisar como se obtiene el numero de la factura por que esta vulnerable a ser cambiada
     def obtener_numero_factura_actual(self):
          try:
               query = "SELECT MAX(factura) FROM ventas"

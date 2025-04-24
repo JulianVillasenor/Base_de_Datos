@@ -2,11 +2,11 @@ from tkinter import Tk, Frame
 from container import Container
 from ttkthemes import ThemedStyle
 
-class Manager(Tk):
+class Manager(Tk): #La classe manager es un TKinter que se encarga de gestionar la aplicacion
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs) #constructor de la clase padre
         self.title("Caja registradora versión 1.01")
-        self.resizable(False, False)
+        self.resizable(False, False) #Para que la ventana no se pueda expandir y se quede del tamaño
         self.configure(bg="#C6D9E3")
         self.geometry("800x400+120+20")
        
@@ -14,7 +14,7 @@ class Manager(Tk):
         self.container.pack(fill="both", expand=True)
 
         self.frames = {
-           Container: None
+           Container: None #aqui se dirigiria un log in o una pagina de registro si se quisiera
         }
 
         self.load_frames()

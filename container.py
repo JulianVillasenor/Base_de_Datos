@@ -6,18 +6,18 @@ from PIL import Image, ImageTk
 
 class Container(tk.Frame):
   def __init__(self, padre, controlador):
-    super().__init__(padre)
-    self.controlador = controlador
+    super().__init__(padre) #constructor de la clase padre
+    self.controlador = controlador #se le pasa el controlador que esta en el manager
     self.pack()
     self.place(x=0, y=0, width=800, height=400)
     self.config(bg="#C6D9E3")
     self.widgets()
 
   def show_frames(self, container):
-      top_level = tk.Toplevel(self)
-      frame = container(top_level)
+      top_level = tk.Toplevel(self) #se crea una ventana independiente a la pantalla inicial que se abre
+      frame = container(top_level) #es el top level que se abre
       frame.config(bg="#C6D9E3")
-      frame.pack(fill="both", expand=True)
+      frame.pack(fill="both", expand=True) #es para que se expanda en toda la ventana
       top_level.geometry("1100x650+120+20")
       top_level.resizable(False, False)
 
@@ -27,10 +27,10 @@ class Container(tk.Frame):
       top_level.lift()
 
   def ventas(self):
-     self.show_frames(Ventas)
+     self.show_frames(Ventas) #se va abrir desde el archivo ventas la clase Ventas
 
   def inventario(self):
-     self.show_frames(Inventario)
+     self.show_frames(Inventario) #se abre la clase Inventario de inventario.py
 
   def widgets(self):
      
