@@ -1,0 +1,1 @@
+-e "facturas/\n__pycache__/" 
