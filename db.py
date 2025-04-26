@@ -36,6 +36,14 @@ class Database:
         self.cursor.close()
         self.connection.close()
 
+    def obtener_mesas(self):
+        query = """
+            SELECT id, sillas, estado, pos_x, pos_y, ancho, alto, forma
+            FROM mesas
+        """
+        return self.obtener_datos(query)
+
+
 # Probar conexión
 if __name__ == "__main__":
     db = Database()

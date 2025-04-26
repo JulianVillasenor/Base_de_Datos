@@ -2,6 +2,7 @@ from tkinter import *
 import tkinter as tk
 from ventas import Ventas
 from inventario import Inventario
+from mesas import Mesas
 from PIL import Image, ImageTk
 
 class Container(tk.Frame):
@@ -31,6 +32,10 @@ class Container(tk.Frame):
 
   def inventario(self):
      self.show_frames(Inventario) #se abre la clase Inventario de inventario.py
+  def mesas(self):
+     self.show_frames(Mesas) 
+
+   
 
   def widgets(self):
      
@@ -51,11 +56,21 @@ class Container(tk.Frame):
      imagen_resize1 = imagen_pil1.resize((50,50))
      imagen_tk1 = ImageTk.PhotoImage(imagen_resize1)
 
-
      btninventario = Button(frame1, bg="#c62e26", fg="white",font="sans 18 bold", text="Ir a inventario", command=self.inventario)
      btninventario.config(image=imagen_tk1, compound=LEFT, padx=10)
      btninventario.image = imagen_tk1
      btninventario.place(x=500, y=130, width=240, height=60)
+
+     # Nuevo botón para Mesas
+     imagen_pil2 = Image.open("icono/mesa-circular.png")
+     imagen_resize2 = imagen_pil2.resize((50,50))
+     imagen_tk2 = ImageTk.PhotoImage(imagen_resize2)
+
+     btnmesas = Button(frame1, bg="#0F9D58", fg="white", font="sans 18 bold", 
+                         text="Mesas", command=self.mesas)
+     btnmesas.config(image=imagen_tk2, compound=LEFT, padx=10)
+     btnmesas.image = imagen_tk2
+     btnmesas.place(x=500, y=230, width=240, height=60)
 
      self.logo_image = Image.open("imagenes/Piedra.png")
      self.logo_image = self.logo_image.resize((280,280))
