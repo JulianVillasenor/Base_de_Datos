@@ -37,5 +37,6 @@ python index.py
   la llamada del frame, proveedor y producto estan relacionados por una llave foranea
 * En ventas en un tk.Button abrira al frame de facturas.py para convertir a pdf determinada factura por su folio y que no se genere al terminar la venta en automatico ya que quedaria su registro en la tabla de facturas
 * Relacionar a ventas con mesa en las tablas de la base de datos y en sus clases como en el caso del Frame de ventas que pida seleccionar de que mesa o barra es el pedido
-
-
+* Realizar el .txt con las querys para la creacion de la base de datos, tablas , vistas
+* Implementacion del log in utilizando a la tabla usuarios como esta en el modelo de la base de datos sin implementar a el valor si es admin por el momento
+* Si hay tiempo aplicar CustomTkinter para modernizar al interfaz

@@ -20,6 +20,7 @@ class Mesas(tk.Frame):
         }
         self.mesa_seleccionada = None
         self.mesa_arrastrando = None
+        self.mesa_id_arrastrando = None
         self.offset_x = 0
         self.offset_y = 0
         self.escala_plano = 1.0
@@ -54,9 +55,9 @@ class Mesas(tk.Frame):
         self.canvas.pack(side="left", fill="both", expand=True)
 
         # Controles de mesas (izquierda)
-        self.lista_mesas = ttk.Combobox(left_frame, font=("Arial", 12), state="readonly")
-        self.lista_mesas.pack(fill="x", pady=5)
-        self.lista_mesas.bind("<<ComboboxSelected>>", self.seleccionar_mesa)
+        #self.lista_mesas = ttk.Combobox(left_frame, font=("Arial", 12), state="readonly")
+        #self.lista_mesas.pack(fill="x", pady=5)
+        #self.lista_mesas.bind("<<ComboboxSelected>>", self.seleccionar_mesa)
 
         # Frame de propiedades
         prop_frame = tk.LabelFrame(left_frame, text="Propiedades", font=("Arial", 12), bg="#f0f0f0")
@@ -128,9 +129,9 @@ class Mesas(tk.Frame):
         mesas = self.db.obtener_mesas()  # Método definido en db.py
         #Actualizar lista desplegable
         if mesas:
-            valores = ["Nueva Mesa"] + [f"Mesa {m[0]}" for m in mesas]
-            self.lista_mesas["values"] = valores
-            self.lista_mesas.current(0)  # Selecciona la primera opción
+            #valores = ["Nueva Mesa"] + [f"Mesa {m[0]}" for m in mesas]
+            #self.lista_mesas["values"] = valores
+            #self.lista_mesas.current(0)  # Selecciona la primera opción
             #Dibujar mesas en el canvas
             for mesa in mesas:
                 id_mesa, sillas, estado, pos_x, pos_y, ancho, alto, forma = mesa
@@ -139,13 +140,24 @@ class Mesas(tk.Frame):
                 if aspecto == "rectangle":
                     mesa_canvas = self.canvas.create_rectangle(
                         pos_x, pos_y, pos_x + ancho, pos_y +alto,
-                        fill = color, tags=f"mesa_{id_mesa}"
+                        fill = color, tags=(f"mesa_{id_mesa}", "mesa")
                     )
                 elif aspecto == "oval":
                     mesa_canvas = self.canvas.create_oval(
                         pos_x, pos_y, pos_x + ancho, pos_y + alto,
-                        fill=color, tags=f"mesa_{id_mesa}"
+                        fill = color, tags=(f"mesa_{id_mesa}", "mesa")
                     )
+                    #Agregar el numero de mesa en el centro
+                centro_x = pos_x + ancho / 2
+                centro_y = pos_y + alto / 2
+                self.canvas.create_text(
+                    centro_x, centro_y,
+                    text=str(id_mesa),
+                    font=("Arial", 14, "bold"),
+                    fill="white",
+                    tags=(f"texto_{id_mesa}", "texto")
+                    )
+
                 self.canvas.tag_bind(mesa_canvas, "<Button-1>", self.seleccionar_mesa_canvas)
 
     def seleccionar_mesa_canvas(self, event):
@@ -225,7 +237,7 @@ class Mesas(tk.Frame):
             messagebox.showerror("Error", "Por favor, ingrese un número válido de sillas.")
 
     def calcular_dimensiones(self, forma, sillas):
-        base_area = sillas * 500 # Area por silla en px
+        base_area = sillas * 900 # Area por silla en px
         if forma not in self.FORMAS:
             formas = 'rectangular'
 
@@ -295,11 +307,11 @@ class Mesas(tk.Frame):
         if not respuesta:
             return
         try:
-            id_mesa = self.mesa_seleccionada.split("_")[-1] # Supone que el texto es "Mesa x"
+            id_mesa = self.mesa_seleccionada # Supone que el texto es "Mesa x"
             delete_query = "DELETE FROM mesas WHERE id = %s" #Eliminar de bd
             self.db.ejecutar_query(delete_query, (id_mesa,))
             self.canvas.delete(f"mesa_{id_mesa}")
-            self.canvas.delete(f"texto_{id_mesa}")
+            self.canvas.delete(f"mesa_texto_{id_mesa}")
             #Limpiar seleccion y recargar las mesas
             self.mesa_seleccionada = None
             self.cargar_mesas()
@@ -333,23 +345,30 @@ class Mesas(tk.Frame):
         mesa_tag = next((tag for tag in tags if tag.startswith("mesa_")), None)
         if mesa_tag:
             self.mesa_arrastrando= item[0]
+            self.mesa_id_arrastrando = int(mesa_tag.split("_")[-1]) #<-guarf\da el id de la mesa pero falta poner self.mesa_id_arrastrando
             coords = self.canvas.coords(self.mesa_arrastrando)
             x, y = coords[0], coords[1]
             self.offset_x = event.x - x
             self.offset_y = event.y - y 
+
     def mover_mesa(self, event):
         #Inicia el arrastre de la mesa
         if self.mesa_arrastrando:
             coords = self.canvas.coords(self.mesa_arrastrando)
             ancho = coords[2] - coords[0]
             alto = coords[3] - coords[1]
+
+            nuevo_x1 = event.x - self.offset_x
+            nuevo_y1 = event.y - self.offset_y
+            nuevo_x2 = nuevo_x1 + ancho
+            nuevo_y2 = nuevo_y1 + alto
+
+            dx = nuevo_x1 - coords[0]
+            dy = nuevo_y1 - coords[1]
             self.canvas.coords(
-                self.mesa_arrastrando,
-                event.x - self.offset_x,
-                event.y - self.offset_y,
-                event.x - self.offset_x + ancho,
-                event.y - self.offset_y + alto
+                self.mesa_arrastrando, nuevo_x1, nuevo_y1, nuevo_x2, nuevo_y2
             )
+            self.canvas.move(f"texto_{self.mesa_arrastrando}", dx, dy)
 
     def finalizar_arrastre(self, event):
         #Finaliza el arrastre y actualiza la posicion en la base de datos
@@ -373,6 +392,7 @@ class Mesas(tk.Frame):
                 except Exception as e:
                     print(f"Error actualizando posicion de mesa {mesa_id}: {e}")
                 self.mesa_arrastrando = None
+                self.mesa_id_arrastrando = None
 
     def zoom_con_rueda(self, event):
         print("Zoom con rueda")
