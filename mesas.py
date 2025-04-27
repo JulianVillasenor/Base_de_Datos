@@ -239,7 +239,7 @@ class Mesas(tk.Frame):
         return ancho, alto
     
     def guardar_mesa(self):
-        if not self.mesa_seleccionada is None:
+        if  self.mesa_seleccionada is None:
             messagebox.showwarning("Advertencia", "No hay ninguna mesa seleccionada.")
             return
 
@@ -253,7 +253,7 @@ class Mesas(tk.Frame):
                 return
 
             # Obtener el ID de la mesa seleccionada
-            id_mesa = self.mesa_seleccionada.split("_")[-1] # Supone que el texto es "Mesa x"
+            id_mesa = self.mesa_seleccionada # Supone que el texto es "Mesa x"
             #Obtener posicion y tamaño actuales del canvas
             coords = self.canvas.coords(f"mesa_{id_mesa}")
             if not coords or len(coords) < 4:

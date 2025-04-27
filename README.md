@@ -29,3 +29,13 @@ pip install pillow
 ### Ejecucion
 python index.py
 
+### Lista de pendientes
+* modelar la tabla de inventario, ventas para que cumpla con la normalizacion  
+* modificar a ventas.py e inventario.py para que trabajen con las nuevas tablas normalizadas
+* crear la tabla factura e implementar el uso de la tabla factura en la creacion del documento pdf que se esta haciendo obteniendo los datos de la tabla inventario y ventas
+* crear la tabla proveedro, poner la llamada a el t.Frame de proveedor.py en un tk.Button dentro de inventario para poder actualizar dentro de inventario a proveedores haciendo
+  la llamada del frame, proveedor y producto estan relacionados por una llave foranea
+* En ventas en un tk.Button abrira al frame de facturas.py para convertir a pdf determinada factura por su folio y que no se genere al terminar la venta en automatico ya que quedaria su registro en la tabla de facturas
+* Relacionar a ventas con mesa en las tablas de la base de datos y en sus clases como en el caso del Frame de ventas que pida seleccionar de que mesa o barra es el pedido
+
+
