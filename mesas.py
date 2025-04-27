@@ -308,38 +308,35 @@ class Mesas(tk.Frame):
             messagebox.showerror("Error", f"Error al eliminar la mesa: {e}")
     
     def seleccionar_mesa(self, event):
-        #Obtiene el ID de la figura bajo el cursor
-        items = self.canvas.find_withtag("current")
-        if not items:
-            return
-        tags = self.canvas.gettags(items[0])
-        mesa_tag = next((tag for tag in tags if tag.startswith("mesa_")), None)
-        if not mesa_tag:
-            return
-        self.mesa_seleccionada = mesa_tag #Ejemplo: mesa_1
-        id_mesa = mesa_tag.split("_")[-1] #Ejemplo: 1
-        #Obtener los datos de bd
-        query = "SELECT sillas, estado, forma FROM mesas WHERE id = %s"
-        resultado = self.db.obtener_datos(query, (id_mesa,))
-        if resultado:
-            sillas, estado_idx, forma = resultado[0]
-            self.entry_sillas.delete(0, tk.END)
-            self.entry_sillas.insert(0, sillas)
-            self.combo_estado.current(estado_idx)
-            self.combo_forma.set(forma)
+       items = self.canvas.find_withtag("current")
+       if not items:
+           return
+       tags = self.canvas.gettags(items[0])
+       mesa_tag = next((tag for tag in tags if tag.startswith("mesa_")), None)
+       if not mesa_tag:
+           return
+       self.mesa_seleccionada = mesa_tag
+       id_mesa = int(mesa_tag.split("_")[-1])
+       mesa = self.db.obtener_mesa_por_id(id_mesa)
+       if mesa:
+           sillas, estadoidx, forma = mesa
+           self.entry_sillas.delete(0, tk.END)
+           self.entry_sillas.insert(0, sillas)
+           self.combo_estado.current(estadoidx)
+           self.combo_forma.set(forma)
 
     def iniciar_arrastre(self, event):
-        #Detecta el objeto bajo el mouse
         item = self.canvas.find_closest(event.x, event.y)
-        tags = self.canvas.gettags(item)
-        #verificar si es una mesa
-        if "mesa" in tags:
-            self.mesa_arrastrando = item[0]
+        if not item:
+            return
+        tags = self.canvas.gettags(item[0])
+        mesa_tag = next((tag for tag in tags if tag.startswith("mesa_")), None)
+        if mesa_tag:
+            self.mesa_arrastrando= item[0]
             coords = self.canvas.coords(self.mesa_arrastrando)
             x, y = coords[0], coords[1]
             self.offset_x = event.x - x
-            self.offset_y = event.y - y
-
+            self.offset_y = event.y - y 
     def mover_mesa(self, event):
         #Inicia el arrastre de la mesa
         if self.mesa_arrastrando:
@@ -371,7 +368,10 @@ class Mesas(tk.Frame):
                 #Actualisacion es postresql
                 sabes = "UPDATE mesas SET pos_x = %s, pos_y = %s, ancho = %s, alto = %s WHERE id = %s"
                 parametros = (x, y, ancho, alto, mesa_id)
-                self.db.ejecutar_query(sabes, parametros)
+                try:
+                    self.db.ejecutar_query(sabes, parametros)
+                except Exception as e:
+                    print(f"Error actualizando posicion de mesa {mesa_id}: {e}")
                 self.mesa_arrastrando = None
 
     def zoom_con_rueda(self, event):
