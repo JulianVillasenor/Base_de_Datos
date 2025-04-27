@@ -33,8 +33,18 @@ class Database:
             return []
 
     def cerrar_conexion(self):
-        self.cursor.close()
-        self.connection.close()
+        try:
+            if self.cursor:
+                self.cursor.close()
+        except Exception as e:
+                print(f"Error cerrando el cursor: {e}")
+        try: 
+            if self.connection:
+                self.connection.close()
+                print("Conexión cerrada")
+        except Exception as e:
+            print(f"Error cerrando la conexión: {e}")
+
 
     def obtener_mesas(self):
         query = """
@@ -42,6 +52,14 @@ class Database:
             FROM mesas
         """
         return self.obtener_datos(query)
+    def obtener_mesa_por_id(self, mesa_id):
+        query = """
+            SELECT id, sillas, estado, pos_x, pos_y, ancho, alto, forma
+            FROM mesas
+            WHERE id = %s
+        """
+        resultad = self.obtener_datos(query, (mesa_id,))
+        return resultad[0] if resultad else None
 
 
 # Probar conexión

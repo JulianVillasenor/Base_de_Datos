@@ -132,9 +132,42 @@ class Mesas(tk.Frame):
             self.lista_mesas["values"] = valores
             self.lista_mesas.current(0)  # Selecciona la primera opción
             #Dibujar mesas en el canvas
-            for mesa in mesas or []:
-                self.dibujar_mesa(*mesa)
-    
+            for mesa in mesas:
+                id_mesa, sillas, estado, pos_x, pos_y, ancho, alto, forma = mesa
+                aspecto = self.FORMAS.get(forma, self.FORMAS['rectangular'])['aspecto']
+                color = self.ESTADOS.get(estado, self.ESTADOS[0])['color']
+                if aspecto == "rectangle":
+                    mesa_canvas = self.canvas.create_rectangle(
+                        pos_x, pos_y, pos_x + ancho, pos_y +alto,
+                        fill = color, tags=f"mesa_{id_mesa}"
+                    )
+                elif aspecto == "oval":
+                    mesa_canvas = self.canvas.create_oval(
+                        pos_x, pos_y, pos_x + ancho, pos_y + alto,
+                        fill=color, tags=f"mesa_{id_mesa}"
+                    )
+                self.canvas.tag_bind(mesa_canvas, "<Button-1>", self.seleccionar_mesa_canvas)
+
+    def seleccionar_mesa_canvas(self, event):
+        #Obtener id de la mesa desde el tag
+        item = self.canvas.find_withtag("current")
+        tags = self.canvas.gettags(item)
+        if tags:
+            mesa_tag = tags[0]
+            mesa_id = mesa_tag.split("_")[-1]  # Extraer el ID de la mesa
+            self.cargar_propiedades_mesa(mesa_id) #funcion auxiliar para cargar propiedades de la mesa seleccionada
+
+    def cargar_propiedades_mesa(self, id_mesa):
+        #Una consulta a una funcion auxiliar de db.py
+        mesa = self.db.obtener_mesa_por_id(id_mesa)
+        if mesa:
+            id_mesa, sillas, estado, pos_x, pos_y, ancho, alto, forma = mesa
+            self.entry_sillas.delete(0, tk.END)
+            self.entry_sillas.insert(0, str(sillas))
+            self.combo_estado.set(self.ESTADOS[estado]['nombre'])
+            self.combo_forma.set(forma)
+            self.mesa_seleccionada = id_mesa
+
     def dibujar_mesa(self, id_mesa, sillas, estado, pos_x, pos_y, ancho, alto, forma):
         #Dibujar la mesa en el canvas
         color = self.ESTADOS[estado]['color']
@@ -352,4 +385,3 @@ class Mesas(tk.Frame):
     def __del__(self):
         self.db.cerrar_conexion()
         print("Conexión cerrada con la base de datos.")
-        
