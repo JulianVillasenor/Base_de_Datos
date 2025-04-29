@@ -1,0 +1,22 @@
+CREATE TABLE ventas (
+    id SERIAL PRIMARY KEY,
+	factura int UNIQUE NOT NULL,
+    id_mesa INT REFERENCES mesas(id),
+    num_id_producto INT REFERENCES inventario(id),
+    valor_articulo FLOAT,
+    cantidad INT,
+    subtotal FLOAT
+);
+
+DROP TABLE IF EXISTS mesas;
+
+CREATE TABLE mesas (
+    id INT PRIMARY KEY,
+    sillas INT NOT NULL,
+    estado INT NOT NULL CHECK (estado IN (0, 1, 2)),
+    pos_x INT NOT NULL,
+    pos_y INT NOT NULL,
+    ancho INT NOT NULL,
+    alto INT NOT NULL,
+    forma VARCHAR(20) NOT NULL
+);

@@ -34,6 +34,7 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
 
         lblframe = LabelFrame(frame2, text="Informacion de la venta", bg="#C6D9E3", font= "sans 16 bold")
         lblframe.place(x=10,y=10,width=1060, height=80)
+        # Numero de factura
 
         label_numero_factura = tk.Label(lblframe, text= "Numero de \nfactura", bg="#C6D9E3", font= "sans 12 bold")
         label_numero_factura.place(x=10,y=5,)
@@ -41,26 +42,36 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
 
         self.entry_numero_factura = ttk.Entry(lblframe, textvariable=self.numero_factura, state="readonly",font= "sans 12 bold" )
         self.entry_numero_factura.place(x=100,y=5, width=80)
-
+          #Productos
         label_nombre = tk.Label(lblframe, text="productos: ",bg="#C6D9E3", font= "sans 12 bold")
         label_nombre.place(x=200,y=12)
         self.entry_nombre = ttk.Combobox(lblframe, font="sans 12 bold", state= "readonly")
         self.entry_nombre.place(x=280, y=10, width=180)
 
-        self.cargar_productos()
-
+        
+          #Precio
         label_valor = tk.Label(lblframe, text="Precio",bg="#C6D9E3", font="sans 12 bold")
         label_valor.place(x=470,y=12)
         self.entry_valor= ttk.Entry(lblframe, font="sans 12 bold", state= "readonly")
         self.entry_valor.place(x=540, y=10, width=180)
 
-        self.entry_nombre.bind("<<ComboboxSelected>>", self.actualizar_precio)
-
+        
+          #Cantidad
         label_cantidad = tk.Label(lblframe, text="Cantidad: ",bg="#C6D9E3", font="sans 12 bold")
         label_cantidad.place(x=730, y=12)
         self.entry_cantidad = ttk.Entry(lblframe, font="sans 12 bold")
-        self.entry_cantidad.place(x=820, y=10)
+        self.entry_cantidad.place(x=820, y=10, width=180)
 
+        #Mesa
+        label_mesa = tk.Label(lblframe, text="Mesa: ",bg="#C6D9E3", font= "sans 12 bold")
+        label_mesa.place(x=730, y=60)
+        self.entry_mesa = ttk.Combobox(lblframe, font="sans 12 bold", state= "readonly")
+        self.entry_mesa.place(x=820, y=60, width=180)
+        #Eventos y cargas iniciales
+        self.entry_nombre.bind("<<ComboboxSelected>>", self.actualizar_precio) #Mover a eventos y cargas iniciales
+        self.cargar_productos() # Carga los productos desde la base de datos
+        self.cargar_mesas() # Carga las mesas desde la base de datos
+          #Treeview de productos agregados
         treFrame = tk.Frame(frame2,bg="#C6D9E3")
         treFrame.place(x=150, y=120, width=800, height=200)
 
@@ -103,9 +114,10 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
 
     def cargar_productos(self): #carga los nombres desde la tabla inventario
             try: 
-                query = "SELECT nombre FROM inventario"  #Aqui esta bien selecciona los valores unicos de la BD 
+                query = "SELECT id, nombre FROM inventario"  #Aqui esta bien selecciona los valores unicos de la BD 
                 productos = self.db.obtener_datos(query)
-                self.entry_nombre["values"] =[producto[0] for producto in productos] #es un combobox donde quiero se desplieguen los nombres de los productos
+                self.productos_dic = {nombre: id for id,nombre in productos} #Diccionario para almacenar los nombres y ids de los productos}
+                self.entry_nombre["values"] = list(self.productos_dic.keys()) #
                 if not productos:
                     print("No se encontraron productos en la base de datos.")
             except Exception as e:
@@ -385,4 +397,13 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
          except Exception as e:
               messagebox.showerror("Error", f"Error al cargar las facturas: {e}")
 
-         
+    def cargar_mesas(self):
+         try:
+              mesas = self.db.obtener_mesas()
+              mesas_disponibles = [mesa for mesa in mesas if mesa[2] == 0]
+              self.mesas_dic = {f"Mesa {mesa[0]} ({mesa[1]} sillas)": mesa[0] for mesa in mesas_disponibles}
+              self.entry_mesa["values"] = list(self.mesas_dic.keys())
+              if not mesas_disponibles:
+                   print("No hay mesas disponibles")
+         except Exception as e:
+                 messagebox.showerror("Error", f"Error al cargar las mesas: {e}")

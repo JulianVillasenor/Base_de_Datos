@@ -40,3 +40,4 @@ python index.py
 * Realizar el .txt con las querys para la creacion de la base de datos, tablas , vistas
 * Implementacion del log in utilizando a la tabla usuarios como esta en el modelo de la base de datos sin implementar a el valor si es admin por el momento
 * Si hay tiempo aplicar CustomTkinter para modernizar al interfaz
+* El log in se llamaria desde container.py
