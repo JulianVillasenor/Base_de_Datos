@@ -35,7 +35,7 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
         frame2.place(x=0,y=100, width= 1100, height=550)
 
         lblframe = LabelFrame(frame2, text="Informacion de la venta", bg="#C6D9E3", font= "sans 16 bold")
-        lblframe.place(x=10,y=10,width=1060, height=80)
+        lblframe.place(x=10,y=10,width=1060, height=120)
         # Numero de factura
 
         label_numero_factura = tk.Label(lblframe, text= "Numero de \nfactura", bg="#C6D9E3", font= "sans 12 bold")
@@ -272,6 +272,7 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
                    for child in self.tree.get_children():
                         item = self.tree.item(child, "values")
                         producto = item[0]
+                        id_producto = self.db.obtener_id_producto(producto) #Una funcion auxiliar
                         precio = item[1]
                         cantidad_vendida = int(item[2])
                         subtotal = float(item[3])
@@ -282,17 +283,17 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
                              return
                         #insertar la venta en la tabla ventas
                         query_venta = """
-                         INSERT INTO ventas (factura, nombre_articulo, valor_articulo, cantidad, subtotal, id_mesa) 
+                         INSERT INTO ventas (factura, id_mesa, num_id_producto, valor_articulo,cantidad, subtotal) 
                          VALUES (%s, %s, %s, %s, %s, %s)
                          RETURNING id
                            """
                         params_venta = (
                              self.numero_factura_actual,
-                             producto,
+                             mesa_id,
+                             id_producto,
                              float(precio),
                              cantidad_vendida,
-                             subtotal,
-                             mesa_id
+                             subtotal
                         )
                         id_venta = self.db.ejecutar_query(query_venta, params_venta, return_id=True) #nueva funcion que devuelve el id de la venta para asignar el folio
                         query_factura = "INSERT INTO factura (id_venta, folio) VALUES (%s, %s)"

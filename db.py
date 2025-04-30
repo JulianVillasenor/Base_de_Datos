@@ -86,6 +86,15 @@ class Database:
         query = "SELECT id FROM mesas"
         self.ejecutar_query(query)
         return self.cursor.fetchall()
+    #PAra la funcion pagar en ventas.py
+    def obtener_id_producto(self, nombre_producto):
+        query = "Select id FROM inventario WHERE nombre = %s"
+        resultado = self.obtener_datos(query, (nombre_producto,))
+        if resultado:
+            return resultado[0][0]
+        else:
+            print(f"Producto '{nombre_producto}' no encontrado en la base de datos.")
+            return None
 
 
 
