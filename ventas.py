@@ -16,6 +16,8 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
         super().__init__(parent) #Llamada al constructor de la clase padre tk.Frame
         self.db = Database() #instancia de la conexion a la base de datos
         self.numero_factura_actual = self.obtener_numero_factura_actual()
+        ids = self.db.ids_mesas() #Obteniendo los ids de las mesas desde la base de datos
+        self.mesas_dic = {f"Mesa {id_}": id_ for (id_,) in ids} #PEndiente definir!!
         self.widgets()
         self.mostrar_numero_factura()
 
@@ -66,7 +68,7 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
         label_mesa = tk.Label(lblframe, text="Mesa: ",bg="#C6D9E3", font= "sans 12 bold")
         label_mesa.place(x=730, y=60)
         self.entry_mesa = ttk.Combobox(lblframe, font="sans 12 bold", state= "readonly")
-        self.entry_mesa.place(x=820, y=60, width=180)
+        self.entry_mesa.place(x=920, y=60, width=180)
         #Eventos y cargas iniciales
         self.entry_nombre.bind("<<ComboboxSelected>>", self.actualizar_precio) #Mover a eventos y cargas iniciales
         self.cargar_productos() # Carga los productos desde la base de datos
@@ -81,7 +83,7 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
         scrol_x = ttk.Scrollbar(treFrame,orient=HORIZONTAL)
         scrol_x.pack(side=BOTTOM, fill=X)
 
-        self.tree = ttk.Treeview(treFrame, columns=("Producto", "Precio", "Cantidad", "Subtotal"), show="headings", height=10, yscrollcommand=scrol_y.set, xscrollcommand=scrol_x.set)
+        self.tree = ttk.Treeview(treFrame, columns=("Producto", "Precio", "Cantidad", "Subtotal", "MesaID"), show="headings", height=10, yscrollcommand=scrol_y.set, xscrollcommand=scrol_x.set)
         scrol_y.config(command=self.tree.yview)
         scrol_x.config(command=self.tree.xview)
 
@@ -89,11 +91,13 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
         self.tree.heading("#2", text="Precio")
         self.tree.heading("#3", text="Cantidad")
         self.tree.heading("#4", text="Subtotal")
+        self.tree.heading("#5", text="Mesa") #Nuevo
         
         self.tree.column("Producto", anchor="center")
         self.tree.column("Precio", anchor="center")
         self.tree.column("Cantidad", anchor="center")
         self.tree.column("Subtotal", anchor="center")
+        self.tree.column("MesaID", anchor="center")#Nuevo
 
         self.tree.pack(expand=True, fill=BOTH)
 
@@ -155,8 +159,13 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
          producto = self.entry_nombre.get()
          precio = self.entry_valor.get()
          cantidad = self.entry_cantidad.get()
-
-         if producto and precio and cantidad:
+         mesa_nombre = self.entry_mesa.get() #Editando par que guarde el id de la mesa seleccionada
+         if not mesa_nombre:
+              messagebox.showerror("Error", "Debe seleccionar una mesa")
+              return
+         mesa_id = self.mesas_dic[mesa_nombre] #Obteniendo el id de la mesa seleccionada
+         #Actualizar el estado de la mesa a ocupada
+         if producto and precio and cantidad and mesa_id:
             try:
                  cantidad = int(cantidad)
                  if not self.verificar_stock(producto, cantidad):
@@ -165,7 +174,7 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
                  precio = float(precio)
                  subtotal = cantidad * precio
 
-                 self.tree.insert("","end", values=(producto,precio, cantidad, subtotal))
+                 self.tree.insert("","end", values=(producto,precio, cantidad, subtotal, mesa_id))
 
                  self.entry_nombre.set("")
                  self.entry_valor.config(state="normal")
@@ -249,6 +258,16 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
               
               try:
                    productos = []
+                   mesa_id = None
+                   mesa_nombre = self.entry_mesa.get()
+                   if not mesa_nombre:
+                        messagebox.showerror("Error", "Debe seleccionar una mesa")
+                        return
+                   #obtenere id
+                   mesa_id = self.mesas_dic[mesa_nombre] #FALTA INICIALIZAR A mesas_dic
+                   if not mesa_id:
+                        messagebox.showerror("Error", "Mesa no seleccionada")
+                        return
                    #obtener los valores del producto vendido desde el arbol
                    for child in self.tree.get_children():
                         item = self.tree.item(child, "values")
@@ -263,17 +282,22 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
                              return
                         #insertar la venta en la tabla ventas
                         query_venta = """
-                         INSERT INTO ventas (factura, nombre_articulo, valor_articulo, cantidad, subtotal) 
-                         VALUES (%s, %s, %s, %s, %s)
+                         INSERT INTO ventas (factura, nombre_articulo, valor_articulo, cantidad, subtotal, id_mesa) 
+                         VALUES (%s, %s, %s, %s, %s, %s)
+                         RETURNING id
                            """
                         params_venta = (
                              self.numero_factura_actual,
                              producto,
                              float(precio),
                              cantidad_vendida,
-                             subtotal
+                             subtotal,
+                             mesa_id
                         )
-                        self.db.ejecutar_query(query_venta, params_venta)
+                        id_venta = self.db.ejecutar_query(query_venta, params_venta, return_id=True) #nueva funcion que devuelve el id de la venta para asignar el folio
+                        query_factura = "INSERT INTO factura (id_venta, folio) VALUES (%s, %s)"
+                        params_factura = (id_venta, self.numero_factura_actual)
+                        self.db.ejecutar_query(query_factura, params_factura) #Asociar el folio a la venta
                         #Actualizar el stock del producto en la tabla inventario
                         query_stock = "UPDATE inventario SET stock = stock - %s WHERE nombre = %s"
                         params_stock = (cantidad_vendida, producto)
@@ -281,53 +305,81 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
                    messagebox.showinfo("Excito", "Venta registrada exitosamente") #Confirmar venta
                    self.numero_factura_actual += 1
                    self.mostrar_numero_factura()
-
+                    #Limpiar la interfaz
                    for child in self.tree.get_children():
                         self.tree.delete(child)
                    self.label_suma_total.config(text="Total a pagar: $0")
                    #Cerrar la venta de pago
                    ventana_pago.destroy()
                    fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                   self.generar_factura_pdf(productos, total, self.numero_factura_actual - 1,fecha )
+                   #self.generar_factura_pdf(productos, total, self.numero_factura_actual - 1,fecha, mesa_id )
               except Exception as e:
                     messagebox.showerror("Error", f"Error al registrar la venta: {e}")
          except ValueError:
               messagebox.showerror("Error", "Cantidad pagada no válida")
      
-    def generar_factura_pdf(self, productos, total, factura_numero, fecha):
+    def generar_factura_pdf(self, productos, total, factura_numero, fecha, mesa_id=None):
          archivo_pdf = f"facturas/factura_{factura_numero}.pdf"
 
          c = canvas.Canvas(archivo_pdf, pagesize=letter)
          width, height = letter
-         styles = getSampleStyleSheet()
-         estilo_titulo = styles["Title"]
-         estilo_normal = styles["Normal"]
-
-         c.setFont("Helvetica-Bold", 16)
-         c.drawString(100, height - 50, f"factura #{factura_numero}")
-
-         c.setFont("Helvetica-Bold", 12)
-         c.drawString(100, height - 70, f"Fecha: {fecha}")
-
-         c.setFont("Helvetica-Bold", 12)
-         c.drawString(100, height - 100, "Informacion de la venta")
-
-         data = [["Producto", "Precio", "Cantidad", "Subtotal"]] + productos
-         table = Table(data)
-         table.wrapOn(c, width, height)
-         table.drawOn(c, 100, height - 200)
-
-         c.setFont("Helvetica-Bold", 16)
-         c.drawString(100, height - 250, f"Total al pagar: ${total}")
-
-         c.setFont("Helvetica-Bold", 12)
-         c.drawString(100, height - 400, "Gracias por su compra, vuelva pronto")
-
+         mesa_info =""
+         #Informacion de la mesa si esta disponible
+         if mesa_id:
+              try:
+                   resultado = self.db.obtener_mesa_por_id(mesa_id)
+                   if resultado:
+                        mesa_data = resultado[0]
+              except Exception as e:
+                   print(f"Error al obtener la mesa: {e}")
+         #Configuracion de margenes
+         margin_left = 50
+         margin_top = 50
+          #Encabezado de la factura
+         c.setFont("Helvetica-Bold", 18)
+         c.drwaCenteredString(width/2, height-50, f"FACTURA #{factura_numero}")
+         #INformacion de fecha y meas
+         c.setFont("Helvetica", 12)
+         y_position = height - margin_top - 30
+         c.drawString(margin_left,y_position, f"Fecha: {fecha}")
+         if mesa_data:
+              y_position -=20
+              mesa_info = f"Mesa: {mesa_data[0]} ({mesa_data[1]} sillas)"
+              c.drawString(margin_left, y_position, mesa_info)
+          #Linea separadora
+         y_position -= 10
+         c.setFont("Helvetica-Bold", 14)
+         c.drawString(margin_left, y_position, "Detalle de productos:")
+         #Prepara datos para la tabla
+         data = [["Producto", "Precio", "Cantidad", "Subtotal"]]
+         for producto in productos:
+              data.append([producto[0], f"${producto[1]:.2f}", producto[2], f"${producto[3]:.2f}"])
+         #Estilo de la tabla
+         style = [
+          ('BACKGROUND', (0, 0), (-1, 0), '#EEEEEE'),
+          ('TEXTCOLOR', (0, 0), (-1, 0), '#000000'),
+          ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+          ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+          ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+          ('BACKGROUND', (0, 1), (-1, -1), '#FFFFFF'),
+          ('GRID', (0, 0), (-1, -1), 1, '#CCCCCC'),
+         ]
+         #Crear y dibujar tabla
+         table = Table(data, colWidths=[200, 80, 60, 80], style=style)
+         table.wrapOn(c, width - 2*margin_left, height)
+         table.drawOn(c, margin_left, y_position - 20 - len(productos)*20)
+         #Total
+         y_total = y_position - 40 - len(productos)*20
+         c.setFont("Helvetica-Bold", 14)
+         c.drawString(margin_left, y_total, f"Total: ${total:.2f}")
+         #Pie de pagina
+         c.setFont("Helvetica-Oblique", 10)
+         c.drwaCenteredString(width/2, 30, "Gracias por su preferencia - Vuelva pronto")
+         #Guardar PDF
          c.save()
-         messagebox.showinfo("Factura Generada", f"La factura #{factura_numero} ha sido generada.")
-         os.startfile(os.path.abspath(archivo_pdf))
+         messagebox.showinfo("Factura generada", f"Factura #{factura_numero} guardada como {archivo_pdf}")
+              
 
-         
     #importante revisar como se obtiene el numero de la factura por que esta vulnerable a ser cambiada
     def obtener_numero_factura_actual(self):
          try:
@@ -398,12 +450,12 @@ class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
               messagebox.showerror("Error", f"Error al cargar las facturas: {e}")
 
     def cargar_mesas(self):
-         try:
-              mesas = self.db.obtener_mesas()
-              mesas_disponibles = [mesa for mesa in mesas if mesa[2] == 0]
-              self.mesas_dic = {f"Mesa {mesa[0]} ({mesa[1]} sillas)": mesa[0] for mesa in mesas_disponibles}
-              self.entry_mesa["values"] = list(self.mesas_dic.keys())
-              if not mesas_disponibles:
-                   print("No hay mesas disponibles")
-         except Exception as e:
-                 messagebox.showerror("Error", f"Error al cargar las mesas: {e}")
+        try:
+             # Usa las claves del diccionario self.mesas_dic
+             nombres_mesas = list(self.mesas_dic.keys())
+             self.entry_mesa['values'] = nombres_mesas
+             if nombres_mesas:
+                  self.entry_mesa.current(0)
+        except Exception as e:
+             print("Error al cargar las mesas:", e)
+         

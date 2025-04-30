@@ -20,3 +20,9 @@ CREATE TABLE mesas (
     alto INT NOT NULL,
     forma VARCHAR(20) NOT NULL
 );
+
+CREATE TABLE factura (
+    id SERIAL PRIMARY KEY,
+    id_venta INT REFERENCES ventas(id),
+    folio INT NOT NULL
+);

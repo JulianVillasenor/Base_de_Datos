@@ -8,7 +8,7 @@ class Database:
             self.connection = psycopg2.connect(
                 dbname="app_ventas",
                 user="postgres",
-                password="", #Poner la contraseña e informacion correcta de la base de datos para poder hace la conexion
+                password="Matamoscas17", #Poner la contraseña e informacion correcta de la base de datos para poder hace la conexion
                 host="localhost",
                 port="5432"
             )
@@ -17,10 +17,14 @@ class Database:
         except Exception as e:
             print(f"Error al conectar a PostgreSQL: {e}")
 
-    def ejecutar_query(self, query, params=None):
+    def ejecutar_query(self, query, params=None, return_id=False):
         try:
             self.cursor.execute(query, params)
             self.connection.commit()
+            if return_id:
+                return self.cursor.fetchone()[0]  # Retorna el ID de la última fila insertada
+            else:
+                return self.cursor.rowcount  # Retorna el número de filas afectadas
         except Exception as e:
             print(f"Error ejecutando la query: {e}")
 
@@ -60,6 +64,29 @@ class Database:
         """
         resultad = self.obtener_datos(query, (mesa_id,))
         return resultad[0] if resultad else None
+    
+    def asociar_venta_a_folio(self, id_venta, folio):
+        query = "INSERT  INTO factura (id_venta, folio) VALUES (%s, %s)"
+        try:
+            self.ejecutar_query(query, (id_venta, folio))
+            self.connection.commit()
+            print("Folio asociado a la venta correctamente.")
+        except Exception as e:
+            print(f"Error al asociar el folio a la venta: {e}")
+
+    def obtener_venta_por_folio(self, folio):
+        query = """
+            SELECT id_venta, folio
+            FROM factura
+            WHERE folio = %s
+        """
+        resultado = self.obtener_datos(query, (folio,))
+        return resultado[0] if resultado else None
+    def ids_mesas(self):
+        query = "SELECT id FROM mesas"
+        self.ejecutar_query(query)
+        return self.cursor.fetchall()
+
 
 
 # Probar conexión
