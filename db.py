@@ -1,5 +1,4 @@
 import psycopg2
-from psycopg2 import sql
 
 class Database:
     def __init__(self):
@@ -96,7 +95,43 @@ class Database:
             print(f"Producto '{nombre_producto}' no encontrado en la base de datos.")
             return None
 
-
+    def ejecutar_transaccion(self, operaciones):
+        """
+        Ejecuta múltiples operaciones como una transacción atómica
+        Args:
+            operaciones: Lista de tuplas (query, params)
+        Returns:
+            bool: True si la transacción fue exitosa, False si hubo error
+        """
+        try:
+            # Crear un nuevo cursor para esta transacción
+            cursor = self.connection.cursor()
+            
+            try:
+                # Iniciar transacción explícita
+                cursor.execute("BEGIN;")
+                
+                # Ejecutar cada operación
+                for query, params in operaciones:
+                    cursor.execute(query, params)
+                
+                # Confirmar transacción si todo fue bien
+                self.connection.commit()
+                return True
+                
+            except Exception as e:
+                # Revertir en caso de error
+                self.connection.rollback()
+                print(f"Error en transacción: {e}")
+                return False
+                
+            finally:
+                # Cerrar el cursor siempre
+                cursor.close()
+                
+        except Exception as e:
+            print(f"Error al preparar transacción: {e}")
+            return False
 
 # Probar conexión
 if __name__ == "__main__":

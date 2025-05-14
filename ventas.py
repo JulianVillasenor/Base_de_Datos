@@ -1,462 +1,354 @@
-from tkinter import *
 import tkinter as tk
 from tkinter import ttk, messagebox
+from datetime import datetime
 from db import Database
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Table
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-import datetime
-import sys
-import os
 
-#El rollo aqui es que se esta seleccionando al producto por su nombre y no por el id que pondre nuevo con un codigo de identificacion unico para el producto
-class Ventas(tk.Frame): #Hereda de Frame para crear la ventana de ventas
+
+class Ventas(tk.Frame):
     def __init__(self, parent):
-        super().__init__(parent) #Llamada al constructor de la clase padre tk.Frame
-        self.db = Database() #instancia de la conexion a la base de datos
-        self.numero_factura_actual = self.obtener_numero_factura_actual()
-        ids = self.db.ids_mesas() #Obteniendo los ids de las mesas desde la base de datos
-        self.mesas_dic = {f"Mesa {id_}": id_ for (id_,) in ids} #PEndiente definir!!
+        super().__init__(parent)
+        self.db = Database()
+        self.numero_factura_actual = self.obtener_numero_folio()
+        ids = self.db.ids_mesas()
+        self.mesas_dic = {f"Mesa {id_}": id_ for (id_,) in ids}
+        self.productos = self.obtener_productos()
+        self.items_venta = []
         self.widgets()
         self.mostrar_numero_factura()
-
+        
+    def obtener_numero_folio(self):
+        """Obtiene el próximo número de folio disponible"""
+        query = "SELECT COALESCE(MAX(numero_folio), 0) + 1 FROM folio"
+        resultado = self.db.obtener_datos(query)
+        return resultado[0][0] if resultado else 1
+        
+    def obtener_productos(self):
+        """Obtiene todos los productos disponibles con stock"""
+        query = "SELECT num_id, nombre, precio FROM inventario WHERE stock > 0"
+        productos = self.db.obtener_datos(query)
+        return {nombre: (num_id, precio) for num_id, nombre, precio in productos}
+        
     def widgets(self):
-
-        frame1 = tk.Frame(self, bg = "#dddddd", highlightbackground="gray", highlightthickness=1)
-        frame1.pack()
-        frame1.place(x=0, y=0, width= 1100, height=100)
-
-        titulo = tk.Label(self, text = "VENTAS", bg= "#dddddd", font="sans 30 bold", anchor="center")
-        titulo.pack()
-        titulo.place(x=5,y=0, width= 1090,height=90)
-
-        frame2 = tk.Frame(self, bg="#C6D9E3", highlightbackground="gray", highlightthickness=1)
-        frame2.place(x=0,y=100, width= 1100, height=550)
-
-        lblframe = LabelFrame(frame2, text="Informacion de la venta", bg="#C6D9E3", font= "sans 16 bold")
-        lblframe.place(x=10,y=10,width=1060, height=120)
-        # Numero de factura
-
-        label_numero_factura = tk.Label(lblframe, text= "Numero de \nfactura", bg="#C6D9E3", font= "sans 12 bold")
-        label_numero_factura.place(x=10,y=5,)
-        self.numero_factura = tk.StringVar()
-
-        self.entry_numero_factura = ttk.Entry(lblframe, textvariable=self.numero_factura, state="readonly",font= "sans 12 bold" )
-        self.entry_numero_factura.place(x=100,y=5, width=80)
-          #Productos
-        label_nombre = tk.Label(lblframe, text="productos: ",bg="#C6D9E3", font= "sans 12 bold")
-        label_nombre.place(x=200,y=12)
-        self.entry_nombre = ttk.Combobox(lblframe, font="sans 12 bold", state= "readonly")
-        self.entry_nombre.place(x=280, y=10, width=180)
-
+        # Frame principal
+        self.main_frame = tk.Frame(self)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-          #Precio
-        label_valor = tk.Label(lblframe, text="Precio",bg="#C6D9E3", font="sans 12 bold")
-        label_valor.place(x=470,y=12)
-        self.entry_valor= ttk.Entry(lblframe, font="sans 12 bold", state= "readonly")
-        self.entry_valor.place(x=540, y=10, width=180)
-
+        # Frame de selección
+        self.selection_frame = tk.LabelFrame(self.main_frame, text="Nueva Venta")
+        self.selection_frame.pack(fill=tk.X, padx=5, pady=5)
         
-          #Cantidad
-        label_cantidad = tk.Label(lblframe, text="Cantidad: ",bg="#C6D9E3", font="sans 12 bold")
-        label_cantidad.place(x=730, y=12)
-        self.entry_cantidad = ttk.Entry(lblframe, font="sans 12 bold")
-        self.entry_cantidad.place(x=820, y=10, width=180)
-
-        #Mesa
-        label_mesa = tk.Label(lblframe, text="Mesa: ",bg="#C6D9E3", font= "sans 12 bold")
-        label_mesa.place(x=730, y=60)
-        self.entry_mesa = ttk.Combobox(lblframe, font="sans 12 bold", state= "readonly")
-        self.entry_mesa.place(x=920, y=60, width=180)
-        #Eventos y cargas iniciales
-        self.entry_nombre.bind("<<ComboboxSelected>>", self.actualizar_precio) #Mover a eventos y cargas iniciales
-        self.cargar_productos() # Carga los productos desde la base de datos
-        self.cargar_mesas() # Carga las mesas desde la base de datos
-          #Treeview de productos agregados
-        treFrame = tk.Frame(frame2,bg="#C6D9E3")
-        treFrame.place(x=150, y=120, width=800, height=200)
-
-        scrol_y = ttk.Scrollbar(treFrame, orient=VERTICAL)
-        scrol_y.pack(side=RIGHT, fill=Y)
-
-        scrol_x = ttk.Scrollbar(treFrame,orient=HORIZONTAL)
-        scrol_x.pack(side=BOTTOM, fill=X)
-
-        self.tree = ttk.Treeview(treFrame, columns=("Producto", "Precio", "Cantidad", "Subtotal", "MesaID"), show="headings", height=10, yscrollcommand=scrol_y.set, xscrollcommand=scrol_x.set)
-        scrol_y.config(command=self.tree.yview)
-        scrol_x.config(command=self.tree.xview)
-
-        self.tree.heading("#1", text="Producto")
-        self.tree.heading("#2", text="Precio")
-        self.tree.heading("#3", text="Cantidad")
-        self.tree.heading("#4", text="Subtotal")
-        self.tree.heading("#5", text="Mesa") #Nuevo
+        # Folio
+        tk.Label(self.selection_frame, text="Folio:").grid(row=0, column=0, sticky="w")
+        self.folio_label = tk.Label(self.selection_frame, text=str(self.numero_factura_actual))
+        self.folio_label.grid(row=0, column=1, sticky="w", padx=5)
         
-        self.tree.column("Producto", anchor="center")
-        self.tree.column("Precio", anchor="center")
-        self.tree.column("Cantidad", anchor="center")
-        self.tree.column("Subtotal", anchor="center")
-        self.tree.column("MesaID", anchor="center")#Nuevo
-
-        self.tree.pack(expand=True, fill=BOTH)
-
-        lblframe1 = LabelFrame(frame2, text="Opciones",bg="#C6D9E3", font= "sans 12 bold")
-        lblframe1.place(x=10, y=380, width=1060, height=100)
-
-        boton_agregar = tk.Button(lblframe1, text="Agregar Articulo",bg="#dddddd", font= "sans 12 bold",command= self.registrar)
-        boton_agregar.place(x=50, y=10, width=240, height=50)
-
-        boton_pagar = tk.Button(lblframe1, text="Pagar",bg="#dddddd", font= "sans 12 bold", command=self.abrir_ventana_pago)
-        boton_pagar.place(x=400, y=10, width=240, height=50)
-
-        boton_ver_facturas = tk.Button(lblframe1, text="Ver Facturas",bg="#dddddd", font= "sans 12 bold", command=self.abrir_ventana_factura)
-        boton_ver_facturas.place(x=750, y=10, width=240, height=50)
-
-        self.label_suma_total = tk.Label(frame2, text="Total a pagar: ",bg="#C6D9E3", font= "sans 25 bold" )
-        self.label_suma_total.place(x=360, y=335)
-
-    def cargar_productos(self): #carga los nombres desde la tabla inventario
-            try: 
-                query = "SELECT id, nombre FROM inventario"  #Aqui esta bien selecciona los valores unicos de la BD 
-                productos = self.db.obtener_datos(query)
-                self.productos_dic = {nombre: id for id,nombre in productos} #Diccionario para almacenar los nombres y ids de los productos}
-                self.entry_nombre["values"] = list(self.productos_dic.keys()) #
-                if not productos:
-                    print("No se encontraron productos en la base de datos.")
-            except Exception as e:
-                print("Error al cargar el producto desde la base de datos:", e)
+        # Mesa
+        tk.Label(self.selection_frame, text="Mesa:").grid(row=1, column=0, sticky="w")
+        self.mesa_var = tk.StringVar()
+        self.mesa_combobox = ttk.Combobox(
+            self.selection_frame, 
+            textvariable=self.mesa_var,
+            values=list(self.mesas_dic.keys()),
+            state="readonly"
+        )
+        self.mesa_combobox.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         
-    def actualizar_precio(self, event):
-            #actualiza el precio del producto seleccionado en el combobox
-            nombre_producto = self.entry_nombre.get()
-            try:
-                #Consulta para obtener el precio del producto seleccionado
-                query = "SELECT precio FROM inventario WHERE nombre = %s"
-                resultado = self.db.obtener_datos(query, (nombre_producto,))
-                if resultado:
-                    precio = resultado[0][0]
-                    self.entry_valor.config(state="normal")
-                    self.entry_valor.delete(0, tk.END)
-                    self.entry_valor.insert(0, precio)
-                    self.entry_valor.config(state="readonly")
-                else:
-                    self.entry_valor.config(state="normal")
-                    self.entry_valor.delete(0, tk.END)
-                    self.entry_valor.insert(0,"Precio no disponible")
-                    self.entry_valor.config(state="readonly")
-            except Exception as e:
-                messagebox.showerror("Error", f"Error al obtener el precio: {e}")
-            
-    def actualizar_total(self):
-         total = 0.0
-         for child in self.tree.get_children():
-              subtotal = float(self.tree.item(child, "values") [3])
-              total += subtotal
-         self.label_suma_total.config(text=f"Total a pagar: ${total}")
-
-    def registrar(self):
-         producto = self.entry_nombre.get()
-         precio = self.entry_valor.get()
-         cantidad = self.entry_cantidad.get()
-         mesa_nombre = self.entry_mesa.get() #Editando par que guarde el id de la mesa seleccionada
-         if not mesa_nombre:
-              messagebox.showerror("Error", "Debe seleccionar una mesa")
-              return
-         mesa_id = self.mesas_dic[mesa_nombre] #Obteniendo el id de la mesa seleccionada
-         #Actualizar el estado de la mesa a ocupada
-         if producto and precio and cantidad and mesa_id:
-            try:
-                 cantidad = int(cantidad)
-                 if not self.verificar_stock(producto, cantidad):
-                      messagebox.showerror("Error", "Stock insuficiente para el producto seleccionado")
-                      return
-                 precio = float(precio)
-                 subtotal = cantidad * precio
-
-                 self.tree.insert("","end", values=(producto,precio, cantidad, subtotal, mesa_id))
-
-                 self.entry_nombre.set("")
-                 self.entry_valor.config(state="normal")
-                 self.entry_valor.delete(0, tk.END)
-                 self.entry_valor.config(state="readonnly")
-                 self.entry_cantidad.delete(0, tk.END)
-
-                 self.actualizar_total()
-            except ValueError:
-                 messagebox.showerror("Error," "Cantidad o precio no valido")
-         else:
-              messagebox.showerror("Error", "Debe completar todos los campos")
-
-    def verificar_stock(self, nombre_producto, cantidad):
-         try:
-             query = "SELECT stock FROM inventario WHERE nombre = %s"
-             params = (nombre_producto,)
-             resultado = self.db.obtener_datos(query, params)
-             if resultado and resultado[0][0] >= cantidad:
-                   return True
-             return False
-         except Exception as e:
-              messagebox.showerror("Error", f"Error al verificar el stock: {e}")
-              return False
-
-    def obtener_total(self):
-         total = 0.0
-         for child in self.tree.get_children():
-              subtotal = float(self.tree.item(child, "values") [3])
-              total += subtotal
-         return total
+        # Producto
+        tk.Label(self.selection_frame, text="Producto:").grid(row=2, column=0, sticky="w")
+        self.producto_var = tk.StringVar()
+        self.producto_combobox = ttk.Combobox(
+            self.selection_frame,
+            textvariable=self.producto_var,
+            values=list(self.productos.keys()),
+            state="readonly"
+        )
+        self.producto_combobox.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
+        
+        # Cantidad
+        tk.Label(self.selection_frame, text="Cantidad:").grid(row=3, column=0, sticky="w")
+        self.cantidad_var = tk.IntVar(value=1)
+        self.cantidad_spinbox = tk.Spinbox(
+            self.selection_frame,
+            from_=1,
+            to=100,
+            textvariable=self.cantidad_var
+        )
+        self.cantidad_spinbox.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        
+        # Botón agregar
+        self.add_button = tk.Button(
+            self.selection_frame,
+            text="Agregar a Venta",
+            command=self.agregar_producto,
+            bg="#4CAF50",
+            fg="white"
+        )
+        self.add_button.grid(row=4, column=0, columnspan=2, pady=5, sticky="ew")
+        
+        # Frame de la venta actual
+        self.venta_frame = tk.LabelFrame(self.main_frame, text="Detalle de Venta")
+        self.venta_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Treeview para los items
+        columns = ("producto", "cantidad", "precio", "subtotal")
+        self.venta_tree = ttk.Treeview(
+            self.venta_frame,
+            columns=columns,
+            show="headings",
+            selectmode="browse"
+        )
+        
+        # Configurar columnas
+        self.venta_tree.heading("producto", text="Producto")
+        self.venta_tree.heading("cantidad", text="Cantidad")
+        self.venta_tree.heading("precio", text="Precio Unitario")
+        self.venta_tree.heading("subtotal", text="Subtotal")
+        
+        # Ajustar anchos de columnas
+        self.venta_tree.column("producto", width=200, anchor="w")
+        self.venta_tree.column("cantidad", width=80, anchor="center")
+        self.venta_tree.column("precio", width=100, anchor="e")
+        self.venta_tree.column("subtotal", width=120, anchor="e")
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(self.venta_frame, orient="vertical", command=self.venta_tree.yview)
+        self.venta_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.venta_tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Total
+        self.total_var = tk.DoubleVar(value=0.0)
+        self.total_label = tk.Label(
+            self.venta_frame, 
+            textvariable=self.total_var,
+            text="Total: $0.00", 
+            font=("Arial", 12, "bold")
+        )
+        self.total_label.pack(side=tk.RIGHT, padx=10, pady=5)
+        
+        # Botones de acción
+        self.button_frame = tk.Frame(self.main_frame)
+        self.button_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.cancelar_button = tk.Button(
+            self.button_frame,
+            text="Cancelar Venta",
+            command=self.cancelar_venta,
+            bg="#f44336",
+            fg="white"
+        )
+        self.cancelar_button.pack(side=tk.LEFT, padx=5)
+        
+        self.eliminar_button = tk.Button(
+            self.button_frame,
+            text="Eliminar Item",
+            command=self.eliminar_item,
+            bg="#FF9800",
+            fg="white"
+        )
+        self.eliminar_button.pack(side=tk.LEFT, padx=5)
+        
+        self.pagar_button = tk.Button(
+            self.button_frame,
+            text="Finalizar Venta",
+            command=self.finalizar_venta,
+            bg="#2196F3",
+            fg="white"
+        )
+        self.pagar_button.pack(side=tk.RIGHT, padx=5)
     
-    def abrir_ventana_pago(self):
-         if not self.tree.get_children():
-              messagebox.showerror("Error", "no hay articulos para pagar")
-              return 
-         ventana_pago = Toplevel(self)
-         ventana_pago.title("Realizar pago")
-         ventana_pago.geometry("400x400")
-         ventana_pago.config(bg="#C6D9E3")
-         ventana_pago.resizable(False, False)
-
-         label_total = tk.Label(ventana_pago, bg="#C6D9E3", text=f"Total a pagar: ${self.obtener_total()}", font="sans 18 bold")
-         label_total.place(x=70, y=20)
-
-         label_cantidad_pagada = tk.Label(ventana_pago, bg="#C6D9E3", text="Cantidad pagada:", font="sans 14 bold")
-         label_cantidad_pagada.place(x=100, y=90)
-         entry_cantidad_pagada = ttk.Entry(ventana_pago, font= "sans 14 bold")
-         entry_cantidad_pagada.place(x=100 ,y=130)
-
-         label_cambio = tk.Label(ventana_pago, bg="#C6D9E3", text="", font="sans 14 bold")
-         label_cambio.place(x=100, y=190)
-
-         def calcular_cambio():
-              try:
-                   cantidad_pagada = float(entry_cantidad_pagada.get())
-                   total = self.obtener_total()
-                   cambio = cantidad_pagada - total
-                   if cambio < 0:
-                        messagebox.showerror("Error", "La cantidad pagada es insuficiente")
-                        return
-                   label_cambio.config(text=f"Vuelto: ${cambio}")
-              except ValueError: 
-                   messagebox.showerror("Error", "Cantidad pagada no valida")
-         boton_calcular = tk.Button(ventana_pago, text ="Calcular Vuelto", bg="white",font="sans 12 bold", command=calcular_cambio)
-         boton_calcular.place(x=100, y=240, width=240, height=40)
-
-         boton_pagar = tk.Button(ventana_pago, text ="Pagar", bg="white",font="sans 12 bold", command=lambda: self.pagar(ventana_pago, entry_cantidad_pagada, label_cambio))
-         boton_pagar.place(x=100, y=300, width=240, height=40)
-
-
-    def pagar(self, ventana_pago, entry_cantidad_pagada, label_cambio):
-         try:
-            #obtener la cantidad pagada desde el entry
-              cantidad_pagada = float(entry_cantidad_pagada.get())
-              total = self.obtener_total()
-              cambio = cantidad_pagada - total
-              if cambio < 0:
-                   messagebox.showerror("Error", "La cantidad pagada es insuficiente")
-                   return
-              
-              try:
-                   productos = []
-                   mesa_id = None
-                   mesa_nombre = self.entry_mesa.get()
-                   if not mesa_nombre:
-                        messagebox.showerror("Error", "Debe seleccionar una mesa")
-                        return
-                   #obtenere id
-                   mesa_id = self.mesas_dic[mesa_nombre] #FALTA INICIALIZAR A mesas_dic
-                   if not mesa_id:
-                        messagebox.showerror("Error", "Mesa no seleccionada")
-                        return
-                   #obtener los valores del producto vendido desde el arbol
-                   for child in self.tree.get_children():
-                        item = self.tree.item(child, "values")
-                        producto = item[0]
-                        id_producto = self.db.obtener_id_producto(producto) #Una funcion auxiliar
-                        precio = item[1]
-                        cantidad_vendida = int(item[2])
-                        subtotal = float(item[3])
-                        productos.append([producto, precio, cantidad_vendida, subtotal])
-                        #Verificar el stock del producto
-                        if not self.verificar_stock(producto, cantidad_vendida):
-                             messagebox.showerror("Error", f"Stock insuficiente para el producto: {producto}")
-                             return
-                        #insertar la venta en la tabla ventas
-                        query_venta = """
-                         INSERT INTO ventas (factura, id_mesa, num_id_producto, valor_articulo,cantidad, subtotal) 
-                         VALUES (%s, %s, %s, %s, %s, %s)
-                         RETURNING id
-                           """
-                        params_venta = (
-                             self.numero_factura_actual,
-                             mesa_id,
-                             id_producto,
-                             float(precio),
-                             cantidad_vendida,
-                             subtotal
-                        )
-                        id_venta = self.db.ejecutar_query(query_venta, params_venta, return_id=True) #nueva funcion que devuelve el id de la venta para asignar el folio
-                        query_factura = "INSERT INTO factura (id_venta, folio) VALUES (%s, %s)"
-                        params_factura = (id_venta, self.numero_factura_actual)
-                        self.db.ejecutar_query(query_factura, params_factura) #Asociar el folio a la venta
-                        #Actualizar el stock del producto en la tabla inventario
-                        query_stock = "UPDATE inventario SET stock = stock - %s WHERE nombre = %s"
-                        params_stock = (cantidad_vendida, producto)
-                        self.db.ejecutar_query(query_stock, params_stock)
-                   messagebox.showinfo("Excito", "Venta registrada exitosamente") #Confirmar venta
-                   self.numero_factura_actual += 1
-                   self.mostrar_numero_factura()
-                    #Limpiar la interfaz
-                   for child in self.tree.get_children():
-                        self.tree.delete(child)
-                   self.label_suma_total.config(text="Total a pagar: $0")
-                   #Cerrar la venta de pago
-                   ventana_pago.destroy()
-                   fecha = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                   #self.generar_factura_pdf(productos, total, self.numero_factura_actual - 1,fecha, mesa_id )
-              except Exception as e:
-                    messagebox.showerror("Error", f"Error al registrar la venta: {e}")
-         except ValueError:
-              messagebox.showerror("Error", "Cantidad pagada no válida")
-     
-    def generar_factura_pdf(self, productos, total, factura_numero, fecha, mesa_id=None):
-         archivo_pdf = f"facturas/factura_{factura_numero}.pdf"
-
-         c = canvas.Canvas(archivo_pdf, pagesize=letter)
-         width, height = letter
-         mesa_info =""
-         #Informacion de la mesa si esta disponible
-         if mesa_id:
-              try:
-                   resultado = self.db.obtener_mesa_por_id(mesa_id)
-                   if resultado:
-                        mesa_data = resultado[0]
-              except Exception as e:
-                   print(f"Error al obtener la mesa: {e}")
-         #Configuracion de margenes
-         margin_left = 50
-         margin_top = 50
-          #Encabezado de la factura
-         c.setFont("Helvetica-Bold", 18)
-         c.drwaCenteredString(width/2, height-50, f"FACTURA #{factura_numero}")
-         #INformacion de fecha y meas
-         c.setFont("Helvetica", 12)
-         y_position = height - margin_top - 30
-         c.drawString(margin_left,y_position, f"Fecha: {fecha}")
-         if mesa_data:
-              y_position -=20
-              mesa_info = f"Mesa: {mesa_data[0]} ({mesa_data[1]} sillas)"
-              c.drawString(margin_left, y_position, mesa_info)
-          #Linea separadora
-         y_position -= 10
-         c.setFont("Helvetica-Bold", 14)
-         c.drawString(margin_left, y_position, "Detalle de productos:")
-         #Prepara datos para la tabla
-         data = [["Producto", "Precio", "Cantidad", "Subtotal"]]
-         for producto in productos:
-              data.append([producto[0], f"${producto[1]:.2f}", producto[2], f"${producto[3]:.2f}"])
-         #Estilo de la tabla
-         style = [
-          ('BACKGROUND', (0, 0), (-1, 0), '#EEEEEE'),
-          ('TEXTCOLOR', (0, 0), (-1, 0), '#000000'),
-          ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-          ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-          ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-          ('BACKGROUND', (0, 1), (-1, -1), '#FFFFFF'),
-          ('GRID', (0, 0), (-1, -1), 1, '#CCCCCC'),
-         ]
-         #Crear y dibujar tabla
-         table = Table(data, colWidths=[200, 80, 60, 80], style=style)
-         table.wrapOn(c, width - 2*margin_left, height)
-         table.drawOn(c, margin_left, y_position - 20 - len(productos)*20)
-         #Total
-         y_total = y_position - 40 - len(productos)*20
-         c.setFont("Helvetica-Bold", 14)
-         c.drawString(margin_left, y_total, f"Total: ${total:.2f}")
-         #Pie de pagina
-         c.setFont("Helvetica-Oblique", 10)
-         c.drwaCenteredString(width/2, 30, "Gracias por su preferencia - Vuelva pronto")
-         #Guardar PDF
-         c.save()
-         messagebox.showinfo("Factura generada", f"Factura #{factura_numero} guardada como {archivo_pdf}")
-              
-
-    #importante revisar como se obtiene el numero de la factura por que esta vulnerable a ser cambiada
-    def obtener_numero_factura_actual(self):
-         try:
-              query = "SELECT MAX(factura) FROM ventas"
-              resultado = self.db.obtener_datos(query)
-
-              max_factura = resultado[0][0]
-              if max_factura:
-                   return max_factura + 1
-              else:
-                   return 1
-         except Exception as e:
-              messagebox.showerror("Error", f"Error al obtener el numero de factura: {e}")
-              return 1
-              
-    def mostrar_numero_factura(self):
-         self.numero_factura.set(self.numero_factura_actual)
-
-    def abrir_ventana_factura(self):
-         ventana_facturas = Toplevel(self)
-         ventana_facturas.title("Factura")
-         ventana_facturas.geometry("800x500")
-         ventana_facturas.config(bg="#C6D9E3")
-         ventana_facturas.resizable(False, False)
-         
-         facturas = Label(ventana_facturas, bg="#C6D9E3", text = "facturas registradas", font = "sans 36 bold")
-         facturas.place(x=150, y=15)
-
-         treFrame = tk.Frame(ventana_facturas, bg="#C6D9E3")
-         treFrame.place(x=10, y=100, width=780, height=380)
-
-         scrol_y = ttk.Scrollbar(treFrame, orient=VERTICAL)
-         scrol_y.pack(side=RIGHT, fill=Y)
-
-         scrol_x = ttk.Scrollbar(treFrame,orient=HORIZONTAL)
-         scrol_x.pack(side=BOTTOM, fill=X)
-
-         tree_facturas = ttk.Treeview(treFrame, columns=("ID", "Factura", "Producto", "Precio", "Cantidad", "Subtotal"), show="headings", height=10, yscrollcommand=scrol_y.set, xscrollcommand=scrol_x.set)
-         scrol_y.config(command=tree_facturas.yview)
-         scrol_x.config(command=tree_facturas.xview)
-
-         tree_facturas.heading("#1", text="ID")
-         tree_facturas.heading("#2", text="Factura")
-         tree_facturas.heading("#3", text="Producto")
-         tree_facturas.heading("#4", text="Precio")
-         tree_facturas.heading("#5", text="Cantidad")
-         tree_facturas.heading("#6", text="Subtotal")
+    def agregar_producto(self):
+        mesa = self.mesa_var.get()
+        producto_nombre = self.producto_var.get()
+        cantidad = self.cantidad_var.get()
         
-         tree_facturas.column("ID",width=70, anchor="center")
-         tree_facturas.column("Factura",width=100, anchor="center")
-         tree_facturas.column("Producto",width=200, anchor="center")
-         tree_facturas.column("Precio",width=130, anchor="center")
-         tree_facturas.column("Cantidad",width=130, anchor="center")
-         tree_facturas.column("Subtotal",width=130, anchor="center")
-
-         tree_facturas.pack(expand=True, fill=BOTH)
-
-         self.cargar_facturas(tree_facturas)
-
-    def cargar_facturas(self, tree):
-         try:
-              query = "SELECT * FROM ventas"
-              facturas = self.db.obtener_datos(query)
-              for factura in facturas:
-                   tree.insert("","end", values=factura)
-                
-         except Exception as e:
-              messagebox.showerror("Error", f"Error al cargar las facturas: {e}")
-
-    def cargar_mesas(self):
+        # Validaciones
+        if not mesa:
+            messagebox.showerror("Error", "Seleccione una mesa")
+            return
+        if not producto_nombre:
+            messagebox.showerror("Error", "Seleccione un producto")
+            return
+        if cantidad <= 0:
+            messagebox.showerror("Error", "La cantidad debe ser mayor a cero")
+            return
+        
         try:
-             # Usa las claves del diccionario self.mesas_dic
-             nombres_mesas = list(self.mesas_dic.keys())
-             self.entry_mesa['values'] = nombres_mesas
-             if nombres_mesas:
-                  self.entry_mesa.current(0)
+            num_id, precio = self.productos[producto_nombre]
+            subtotal = precio * cantidad
+            
+            # Verificar stock disponible
+            query_stock = "SELECT stock FROM inventario WHERE num_id = %s"
+            stock_actual = self.db.obtener_datos(query_stock, (num_id,))[0][0]
+            
+            if cantidad > stock_actual:
+                messagebox.showerror("Error", f"No hay suficiente stock. Disponible: {stock_actual}")
+                return
+            
+            # Agregar al Treeview
+            self.venta_tree.insert("", "end", values=(
+                producto_nombre, 
+                cantidad, 
+                f"${precio:.2f}", 
+                f"${subtotal:.2f}"
+            ))
+            
+            # Guardar en lista temporal
+            self.items_venta.append({
+                "id_mesa": self.mesas_dic[mesa],
+                "num_id_producto": num_id,
+                "producto_nombre": producto_nombre,
+                "valor_articulo": precio,
+                "cantidad": cantidad,
+                "subtotal": subtotal
+            })
+            if len(self.items_venta) == 1:
+                self.mesa_combobox.config(state="disabled")
+            # Actualizar total
+            self.actualizar_total()
+            
+            # Limpiar selección
+            self.producto_var.set("")
+            self.cantidad_var.set(1)
+            
         except Exception as e:
-             print("Error al cargar las mesas:", e)
-         
+            messagebox.showerror("Error", f"Error al agregar producto: {str(e)}")
+    
+    def eliminar_item(self):
+        seleccionado = self.venta_tree.selection()
+        if not seleccionado:
+            messagebox.showwarning("Advertencia", "Seleccione un item para eliminar")
+            return
+            
+        try:
+            # Obtener índice del item seleccionado
+            index = self.venta_tree.index(seleccionado[0])
+            
+            # Eliminar de la lista
+            self.items_venta.pop(index)
+            
+            # Eliminar del Treeview
+            self.venta_tree.delete(seleccionado)
+            
+            # Actualizar total
+            self.actualizar_total()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al eliminar item: {str(e)}")
+    
+    def actualizar_total(self):
+        total = sum(item["subtotal"] for item in self.items_venta)
+        self.total_var.set(total)
+        self.total_label.config(text=f"Total: ${total:.2f}")
+    
+    def finalizar_venta(self):
+     if not self.items_venta:
+          messagebox.showerror("Error", "No hay items en la venta")
+          return
+     if not messagebox.askyesno("Confirmar", "¿Desea finalizar la venta?"):
+          return
+     try:
+          # 1. Insertar el folio y obtener el ID
+          query_folio = "INSERT INTO folio (numero_folio) VALUES (%s) RETURNING id"
+          folio_id_result = self.db.obtener_datos(query_folio, (self.numero_factura_actual,))
+          if not folio_id_result:
+               raise Exception("No se pudo crear el folio")
+          id_folio = folio_id_result[0][0]
+
+          # 2. Preparamos las operaciones para insertar ventas y actualizar stock
+          operaciones = []
+          for item in self.items_venta:
+               # Registrar venta
+               operaciones.append((
+                    """
+                    INSERT INTO ventas (
+                         id_mesa, num_id_producto, valor_articulo, cantidad, subtotal, id_folio
+                    ) VALUES (%s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                         item["id_mesa"],
+                         item["num_id_producto"],
+                         item["valor_articulo"],
+                         item["cantidad"],
+                         item["subtotal"],
+                         id_folio  # Usamos el id del folio real
+                    )
+               ))
+
+               # Actualizar stock
+               operaciones.append((
+                    "UPDATE inventario SET stock = stock - %s WHERE num_id = %s",
+                    (item["cantidad"], item["num_id_producto"])
+               ))
+
+          # 3. Ejecutamos la transacción
+          if not self.db.ejecutar_transaccion(operaciones):
+               raise Exception("Error al realizar la transacción")
+
+          # 4. Mostrar resumen
+          fecha_venta = self.db.obtener_datos(
+               "SELECT fecha_creacion FROM folio WHERE numero_folio = %s",
+               (self.numero_factura_actual,)
+          )[0][0]
+          resumen = (
+               f"Venta finalizada con éxito \n\n"
+               f"Folio: {self.numero_factura_actual}\n"
+               f"Fecha: {fecha_venta}\n\n"
+               f"Total: ${sum(item['subtotal'] for item in self.items_venta):.2f}\n\n"
+          )
+          if messagebox.askyesno("Venta exitosa", resumen):
+               self.imprimir_ticket(self.numero_factura_actual)
+          self.cancelar_venta()
+
+     except Exception as e:
+          messagebox.showerror("Error", f"No se pudo finalizar la venta: {str(e)}")
+
+
+    def imprimir_ticket(self, folio_id):
+        """Función para generar el ticket de venta"""
+        try:
+            # Obtener datos del folio
+            query = """
+                SELECT f.numero_folio, f.fecha_creacion, 
+                       m.id as mesa_id, SUM(v.subtotal) as total
+                FROM folio f
+                JOIN ventas v ON f.id = v.id_folio
+                JOIN mesas m ON v.id_mesa = m.id
+                WHERE f.id = %s
+                GROUP BY f.id, m.id
+            """
+            datos_folio = self.db.obtener_datos(query, (folio_id,))[0]
+            
+            # Obtener items de la venta
+            query_items = """
+                SELECT i.nombre, v.cantidad, v.valor_articulo, v.subtotal
+                FROM ventas v
+                JOIN inventario i ON v.num_id_producto = i.num_id
+                WHERE v.id_folio = %s
+            """
+            items = self.db.obtener_datos(query_items, (folio_id,))
+            
+            # Aquí iría el código para generar el ticket (PDF, impresora, etc.)
+            # Por ahora solo mostramos un mensaje
+            messagebox.showinfo("Ticket", "Ticket generado (simulación)")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo generar el ticket: {str(e)}")
+    
+    def cancelar_venta(self):
+        
+        # Limpiar todo
+        self.venta_tree.delete(*self.venta_tree.get_children())
+        self.items_venta = []
+        self.total_var.set(0.0)
+        self.mesa_var.set("")
+        self.producto_var.set("")
+        self.cantidad_var.set(1)
+        
+        # Generar nuevo folio
+        self.numero_factura_actual = self.obtener_numero_folio()
+        self.mostrar_numero_factura()
+        self.mesa_combobox.config(state="readonly")
+    
+    def mostrar_numero_factura(self):
+        self.folio_label.config(text=str(self.numero_factura_actual))
