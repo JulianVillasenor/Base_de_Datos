@@ -1,49 +1,3 @@
-CREATE TABLE ventas (
-    id SERIAL PRIMARY KEY,
-	factura int UNIQUE NOT NULL,
-    id_mesa INT REFERENCES mesas(id),
-    num_id_producto varchar REFERENCES inventario(num_id), #MODIFICACION
-    valor_articulo FLOAT,
-    cantidad INT,
-    subtotal FLOAT
-);
-
-DROP TABLE IF EXISTS mesas;
-
-CREATE TABLE mesas (
-    id INT PRIMARY KEY,
-    sillas INT NOT NULL,
-    estado INT NOT NULL CHECK (estado IN (0, 1, 2)),
-    pos_x INT NOT NULL,
-    pos_y INT NOT NULL,
-    ancho INT NOT NULL,
-    alto INT NOT NULL,
-    forma VARCHAR(20) NOT NULL
-);
-#
-CREATE TABLE factura (
-    id SERIAL PRIMARY KEY,
-    id_venta INT REFERENCES ventas(id),
-    folio INT NOT NULL
-);
-
-
-CREATE TABLE proveedor (
-    RFC VARCHAR(13) PRIMARY KEY,
-    nombre VARCHAR(100) NOT NULL,
-    direccion VARCHAR(255),
-    telefono VARCHAR(15)
-);
-
-
-CREATE TABLE inventario (
-    num_id VARCHAR(13) PRIMARY KEY, 
-    nombre VARCHAR NOT NULL,
-    proveedor VARCHAR(13) NOT NULL REFERENCES proveedor(RFC),
-    precio REAL NOT NULL,
-    costo REAL NOT NULL,
-    stock INT NOT NULL
-);
 
 
 
@@ -130,7 +84,7 @@ ADD CONSTRAINT unique_rfc UNIQUE (RFC);
 
 CREATE TABLE folio (
     id SERIAL PRIMARY KEY,
-    numero_folio INT UNIQUE NOT NULL,
+    numero_folio INT UNIQUE NOT NULL, #ELiminado
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -1,82 +1,117 @@
-from tkinter import *
-import tkinter as tk
+import customtkinter as ctk
 from ventas import Ventas
 from inventario import Inventario
 from mesas import Mesas
-from PIL import Image, ImageTk
+from PIL import Image
 
-class Container(tk.Frame):
-  def __init__(self, padre, controlador):
-    super().__init__(padre) #constructor de la clase padre
-    self.controlador = controlador #se le pasa el controlador que esta en el manager
-    self.pack()
-    self.place(x=0, y=0, width=800, height=400)
-    self.config(bg="#C6D9E3")
-    self.widgets()
+# Configuración de apariencia
+ctk.set_appearance_mode("light")
+ctk.set_default_color_theme("blue")
 
-  def show_frames(self, container):
-      top_level = tk.Toplevel(self) #se crea una ventana independiente a la pantalla inicial que se abre
-      frame = container(top_level) #es el top level que se abre
-      frame.config(bg="#C6D9E3")
-      frame.pack(fill="both", expand=True) #es para que se expanda en toda la ventana
-      top_level.geometry("1100x650+120+20")
-      top_level.resizable(False, False)
+class Container(ctk.CTkFrame):
+    def __init__(self, padre, controlador):
+        super().__init__(
+            padre, 
+            width=800,  # Definir tamaño aquí
+            height=400
+        )
+        self.controlador = controlador
+        self.pack(fill="both", expand=True)
+        self.configure(fg_color="#C6D9E3")
+        self.widgets()
 
-      top_level.transient(self.master)
-      top_level.grab_set()
-      top_level.focus_set()
-      top_level.lift()
+    def show_frames(self, container):
+        top_level = ctk.CTkToplevel(self)
+        top_level.geometry("1100x650+120+20")
+        top_level.resizable(False, False)
+        top_level.transient(self.master)
+        top_level.grab_set()
+        top_level.focus_set()
+        top_level.lift()
+        
+        frame = container(top_level)
+        frame.configure(fg_color="#C6D9E3")
+        frame.pack(fill="both", expand=True)
 
-  def ventas(self):
-     self.show_frames(Ventas) #se va abrir desde el archivo ventas la clase Ventas
+    def ventas(self):
+        self.show_frames(Ventas)
 
-  def inventario(self):
-     self.show_frames(Inventario) #se abre la clase Inventario de inventario.py
-  def mesas(self):
-     self.show_frames(Mesas) 
+    def inventario(self):
+        self.show_frames(Inventario)
 
-   
+    def mesas(self):
+        self.show_frames(Mesas)
 
-  def widgets(self):
-     
-     frame1 = tk.Frame(self, bg="#C6D9E3")
-     frame1.pack()
-     frame1.place(x=0,y=0,width=800, height=400)
-     
-     imagen_pil = Image.open("icono/carrito.png")
-     imagen_resize = imagen_pil.resize((50,50))
-     imagen_tk = ImageTk.PhotoImage(imagen_resize)
+    def widgets(self):
+        frame1 = ctk.CTkFrame(
+            self, 
+            fg_color="#C6D9E3",
+            width=800,  # Tamaño definido en constructor
+            height=400
+        )
+        frame1.pack(fill="both", expand=True)
+        
+        # Botón de Ventas
+        imagen_ventas = ctk.CTkImage(Image.open("icono/carrito.png"), size=(50, 50))
+        btnventas = ctk.CTkButton(
+            frame1,
+            text="Ir a ventas",
+            font=ctk.CTkFont(family="sans serif", size=18, weight="bold"),
+            fg_color="#f4b400",
+            text_color="white",
+            command=self.ventas,
+            image=imagen_ventas,
+            compound="left",
+            corner_radius=10,
+            width=240,  # Tamaño en constructor
+            height=60
+        )
+        btnventas.place(x=500, y=30)
 
-     btnventas = Button(frame1, bg="#f4b400", fg="white",font="sans 18 bold", text="Ir a ventas", command=self.ventas)
-     btnventas.config(image=imagen_tk, compound=LEFT, padx=40)
-     btnventas.image = imagen_tk
-     btnventas.place(x=500, y=30, width=240, height=60)
+        # Botón de Inventario
+        imagen_inventario = ctk.CTkImage(Image.open("icono/inventario.png"), size=(50, 50))
+        btninventario = ctk.CTkButton(
+            frame1,
+            text="Ir a inventario",
+            font=ctk.CTkFont(family="sans serif", size=18, weight="bold"),
+            fg_color="#c62e26",
+            text_color="white",
+            command=self.inventario,
+            image=imagen_inventario,
+            compound="left",
+            corner_radius=10,
+            width=240,
+            height=60
+        )
+        btninventario.place(x=500, y=130)
 
-     imagen_pil1 = Image.open("icono/inventario.png")
-     imagen_resize1 = imagen_pil1.resize((50,50))
-     imagen_tk1 = ImageTk.PhotoImage(imagen_resize1)
+        # Botón de Mesas
+        imagen_mesas = ctk.CTkImage(Image.open("icono/mesa-circular.png"), size=(50, 50))
+        btnmesas = ctk.CTkButton(
+            frame1,
+            text="Mesas",
+            font=ctk.CTkFont(family="sans serif", size=18, weight="bold"),
+            fg_color="#0F9D58",
+            text_color="white",
+            command=self.mesas,
+            image=imagen_mesas,
+            compound="left",
+            corner_radius=10,
+            width=240,
+            height=60
+        )
+        btnmesas.place(x=500, y=230)
 
-     btninventario = Button(frame1, bg="#c62e26", fg="white",font="sans 18 bold", text="Ir a inventario", command=self.inventario)
-     btninventario.config(image=imagen_tk1, compound=LEFT, padx=10)
-     btninventario.image = imagen_tk1
-     btninventario.place(x=500, y=130, width=240, height=60)
+        # Logo
+        self.logo_image = ctk.CTkImage(Image.open("imagenes/Piedra.png"), size=(280, 280))
+        self.logo_label = ctk.CTkLabel(frame1, image=self.logo_image, text="")
+        self.logo_label.place(x=100, y=30)
 
-     # Nuevo botón para Mesas
-     imagen_pil2 = Image.open("icono/mesa-circular.png")
-     imagen_resize2 = imagen_pil2.resize((50,50))
-     imagen_tk2 = ImageTk.PhotoImage(imagen_resize2)
-
-     btnmesas = Button(frame1, bg="#0F9D58", fg="white", font="sans 18 bold", 
-                         text="Mesas", command=self.mesas)
-     btnmesas.config(image=imagen_tk2, compound=LEFT, padx=10)
-     btnmesas.image = imagen_tk2
-     btnmesas.place(x=500, y=230, width=240, height=60)
-
-     self.logo_image = Image.open("imagenes/Piedra.png")
-     self.logo_image = self.logo_image.resize((280,280))
-     self.logo_image = ImageTk.PhotoImage(self.logo_image)
-     self.logo_label = tk.Label(frame1, image=self.logo_image, bg="#C6D9E3")
-     self.logo_label.place(x=100, y=30)
-
-     copyright_label = tk.Label(frame1, text="© 2022 Piedra Romana. Todos los derechos reservados", font="sans 12 bold", bg="#C6D9E3", fg="gray")
-     copyright_label.place(x=180,y=350)
+        # Copyright
+        copyright_label = ctk.CTkLabel(
+            frame1,
+            text="© 2022 Piedra Romana. Todos los derechos reservados",
+            font=ctk.CTkFont(family="sans serif", size=12, weight="bold"),
+            text_color="gray"
+        )
+        copyright_label.place(x=180, y=350)
